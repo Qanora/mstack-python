@@ -27,3 +27,9 @@ class Tuntap:
 
     def mut(self):
         return self.dev.mtu
+
+    def blocking_read(self, size):
+        while True:
+            tmp = self.dev.read(size)
+            if tmp:
+                return tmp
