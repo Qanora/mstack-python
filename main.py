@@ -2,20 +2,17 @@ from link.tuntap import Tuntap
 from link.link import Link
 from header.ethernet import EthernetConfig
 from stack.nic import Nic
+from stack.stack import stack
+import asyncio
+import logging
+logging.basicConfig(level=logging.INFO)
+
+dev = Tuntap("tap0")
+dev.active("192.168.1.0/24")
+link_field = EthernetConfig(1500, dev.mac_addr())
+link = Link(dev, link_field)
+n = Nic(stack, link)
 
 
-def parpare_tuntap() -> Tuntap:
-    tap_name = "tap0"
-    dev = Tuntap(tap_name)
-    dev.new_net_dev()
-    dev.set_link_up()
-    dev.set_route("192.168.1.0/24")
-    print("start capturing")
-    return dev
-
-
-fd = parpare_tuntap()
-link_field = EthernetConfig(1500, fd.mac_addr())
-link = Link(fd, link_field)
-n = Nic()
-link.attach(n)
+loop = asyncio.get_event_loop()
+loop.run_forever()

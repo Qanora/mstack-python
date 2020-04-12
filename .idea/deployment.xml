@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@39.106.30.219:22">
+  <component name="PublishConfigData" autoUpload="Always">
     <serverData>
       <paths name="root@39.106.30.219:22">
         <serverdata>
           <mappings>
-            <mapping deploy="/mtcp" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/root/mtcp" local="$PROJECT_DIR$" />
+            <mapping />
           </mappings>
         </serverdata>
       </paths>
