@@ -25,24 +25,24 @@ class Link:
 
     def write_packet(self, link_packet: EthernetPacketField) -> None:
         if self.mac_addr and link_packet.dst_mac_addr and self.mac_addr == link_packet.dst_mac_addr:
-            self.deliver(link_packet.payload)
+            self.deliver(link_packet.type, link_packet.payload)
         if not link_packet.src_mac_addr:
             link_packet.src_mac_addr = self.mac_addr
 
         self.fd.no_blocking_write(link_packet.encode())
 
-    def deliver(self, link_payload: bytearray) -> None:
-        self.dispatcher.deliver(link_payload)
+    def deliver(self, prot_type: bytearray, link_payload: bytearray) -> None:
+        self.dispatcher.deliver_network(prot_type, link_payload)
 
-    def dispatch_loop(self) -> None:
-        for buf in self.fd.blocking_read(self.mtu):
-            link_packet = EthernetPacketField()
-            link_packet.decode(buf)
-            logging.info("link-: src:" + link_packet.src_mac_addr.hex() + " dst:" + link_packet.dst_mac_addr.hex())
-            self.deliver(link_packet.payload)
+    # def dispatch_loop(self) -> None:
+    #     for buf in self.fd.blocking_read(self.mtu):
+    #         link_packet = EthernetPacketField()
+    #         link_packet.decode(buf)
+    #         logging.info("link-: src:" + link_packet.src_mac_addr.hex() + " dst:" + link_packet.dst_mac_addr.hex())
+    #         self.deliver(link_packet.payload)
 
     def dispatch_loop_by_callback(self, buf) -> None:
         link_packet = EthernetPacketField()
         link_packet.decode(buf)
         logging.info("link-: src:" + link_packet.src_mac_addr.hex() + " dst:" + link_packet.dst_mac_addr.hex())
-        self.deliver(link_packet.payload)
+        self.deliver(link_packet.type, link_packet.payload)

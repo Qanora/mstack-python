@@ -29,7 +29,7 @@ class Tuntap:
     def set_route(self, cidr: str) -> None:
         os.system("ip route add " + cidr + " dev " + self.dev_name)
 
-    def add_ip(self, ip: str) -> None:
+    def set_ip(self, ip: str) -> None:
         os.system("ip addr add " + ip + " dev " + self.dev_name)
 
     def mac_addr(self) -> bytes:
@@ -41,15 +41,15 @@ class Tuntap:
     def mtu(self) -> int:
         return self.dev.mtu
 
-    def blocking_read(self, size: int) -> bytearray:
-        while True:
-            event = self.sel.select()
-            for key, mask in event:
-                buf = os.read(key.fd, size)
-                yield buf
+    # def blocking_read(self, size: int) -> bytearray:
+    #     while True:
+    #         event = self.sel.select()
+    #         for key, mask in event:
+    #             buf = os.read(key.fd, size)
+    #             yield buf
 
     def no_blocking_write(self, data: bytearray) -> None:
-        pass
+        self.dev.write(bytes(data))
 
     def add_read_callback(self, callback):
         loop = asyncio.get_event_loop()
