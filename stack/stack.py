@@ -1,32 +1,76 @@
 import logging
+from link.link import Link
 
 
 class Stack:
     def __init__(self):
-        self.link = None
-        self.transport_protocol = {}
-        self.network_protocol = {}
+        self.link_dev = None
+        self.link_layer = None
+        self.network_layer = None
+        self.transport_layer = None
 
-    def register_link(self, link):
-        self.link = link
+    def attch(self):
+        self.link_dev.attach(self)
 
-    def register_transport(self, transport):
-        self.transport_protocol[transport.prot_type()] = transport
+    def set_dev(self, dev):
+        self.link_dev = dev
 
-    def register_network(self, network):
-        logging.info("register network: " + hex(network.prot_type()))
-        self.network_protocol[network.prot_type()] = network.handle_packet
+    def my_mac_addr(self):
+        return self.link_dev.my_mac_addr()
 
-    def deliver_network(self, prot_type: bytearray, payload: bytearray) -> None:
-        prot_type = int.from_bytes(prot_type, 'big')
-        logging.info("deliver-: get network packet: " + str(hex(prot_type)))
-        if prot_type in self.network_protocol:
-            self.network_protocol[prot_type](self, payload)
-        else:
-            logging.error("deliver-: error network protocol type: " + hex(prot_type))
+    def my_ip_addr(self):
+        return self.link_dev.my_ip_addr()
 
-    def deliver_transport(self, prot_type: bytearray, payload: bytearray) -> None:
+    def set_link_layer(self, link):
+        self.link_layer = link
+
+    def set_network_layer(self, network_config):
+        # self.network_layer = network
         pass
 
+    def set_transport_layer(self, transport_config):
+        # self.transport_layer = transport
+        pass
 
-stack = Stack()
+    def register_link_protocol(self, link_protocol):
+        if not self.link_layer:
+            logging.error("[STACK] register link: " + link_protocol.prot_type())
+            return
+        logging.info("[STACK] register link: " + link_protocol.prot_type())
+        self.link_layer.register(link_protocol)
+
+    def register_network_protocol(self, network_protocol):
+        if not self.link_layer:
+            logging.error("[STACK] register network: " + network_protocol.prot_type())
+            return
+        logging.info("[STACK] register network: " + network_protocol.prot_type())
+        self.network_layer.register(network_protocol)
+
+    def register_transport_protocol(self, transport_protocol):
+        if not self.link_layer:
+            logging.error("[STACK] register transport: " + transport_protocol.prot_type())
+            return
+        logging.info("[STACK] register transport: " + transport_protocol.prot_type())
+        self.transport_layer.register(transport_protocol)
+
+    def deliver_link(self, link_packet):
+        if not self.link_layer:
+            return
+        self.link_layer.handle_packet(link_packet)
+
+    def deliver_network(self, network_packet) -> None:
+        if not self.link_layer:
+            return
+        self.network_layer.handle_packet(network_packet)
+
+    def deliver_transport(self, transport_packet) -> None:
+        if not self.link_layer:
+            return
+        self.transport_layer.handle_packet(transport_packet)
+
+    def write_dev(self, packet):
+        self.link_dev.write_packet(packet)
+
+    def write_link(self, packet):
+        pass
+
