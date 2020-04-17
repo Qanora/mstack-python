@@ -1,5 +1,4 @@
 import logging
-
 from header.metapacket import MetaPacket
 import util
 
@@ -23,8 +22,9 @@ class EthernetPacketField:
     def __getitem__(self, item):
         if item == "payload":
             return self.data[14:]
-        if iter == "prot_type":
-            return "%04x" % int.from_bytes(self["prot_type"], byteorder='big')
+        if item == "prot_type":
+            l,r = self.attr[item]
+            return "%04x" % int.from_bytes(self.data[l:r], byteorder='big')
         l, r = self.attr[item]
         value = self.data[l:r]
         return value
@@ -59,7 +59,7 @@ class Ethernet:
         e_packet.LOG_INFO("RECV")
 
         packet = MetaPacket(Ethernet.prot_type(), e_packet["prot_type"], e_packet["payload"])
-        packet.set_mac_addr(e_packet["dst_mac_addr"])
+        packet.set_mac_addr(e_packet["src_mac_addr"])
         packet.LOG_INFO("SEND")
 
         link.handle_packet(packet)

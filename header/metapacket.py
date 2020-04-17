@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 import logging
 import util
+
+
 class MetaPacket:
     def __init__(self, _sender_prot_type, _target_prot_type, _payload):
         self._sender_prot_type = _sender_prot_type
@@ -19,19 +21,19 @@ class MetaPacket:
     def target_prot_type(self) -> str:
         return self._target_prot_type
 
-    def set_ip_addr(self, ip_addr):
+    def set_ip_addr(self, ip_addr: bytearray):
         self._ip_addr = ip_addr
 
-    def set_mac_addr(self, mac_addr):
+    def set_mac_addr(self, mac_addr: bytearray):
         self._mac_addr = mac_addr
 
-    def ip_addr(self):
+    def ip_addr(self) -> bytearray:
         return self._ip_addr
 
-    def mac_addr(self):
+    def mac_addr(self) -> bytearray:
         return self._mac_addr
 
     def LOG_INFO(self, status):
         logging.info("[METAPACKET][" + status + "]:" + " [FROM]:" + self.sender_prot_type() +
-                     " [TO]:" + self.target_prot_type() + " [DATA] IP:" + util.ip_to_string(self.ip_addr())
-                     + " MAC:" +util.bytes_to_string(self.mac_addr()))
+                     " [TO]:" + self.target_prot_type() + " [DATA] IP:" + ("None" if not self.ip_addr() else util.ip_to_string(self.ip_addr()))
+                     + " MAC:" + ("None" if not self.mac_addr() else util.bytes_to_string(self.mac_addr())))

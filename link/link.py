@@ -73,7 +73,9 @@ class Link:
         if prot_type in self.link_protocol_handle:
             self.link_protocol_handle[prot_type](self, packet)
         else:
+            self.stack.deliver_network(packet)
             logging.error("[LINK] error handle packet type:" + prot_type)
+            logging.error("[LINK] deliver to network:" + prot_type)
 
     def write_packet(self, packet: MetaPacket):
         packet = self.hook_ip_mac(packet)

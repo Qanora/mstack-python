@@ -24,9 +24,8 @@ class Stack:
     def set_link_layer(self, link):
         self.link_layer = link
 
-    def set_network_layer(self, network_config):
-        # self.network_layer = network
-        pass
+    def set_network_layer(self, network):
+        self.network_layer = network
 
     def set_transport_layer(self, transport_config):
         # self.transport_layer = transport
@@ -70,7 +69,4 @@ class Stack:
 
     def write_dev(self, packet):
         self.link_dev.write_packet(packet)
-
-    def write_link(self, packet):
-        pass
 

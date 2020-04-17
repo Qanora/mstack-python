@@ -42,5 +42,5 @@ class Dev:
 
     def read_dispatch(self, buf) -> None:
         packet = MetaPacket("0000", Ethernet.prot_type(), buf)
-        packet.set_mac_addr("000000000000")
+        packet.set_mac_addr(bytearray.fromhex("000000000000"))
         self.deliver_link(packet)

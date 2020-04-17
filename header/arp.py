@@ -43,7 +43,9 @@ class ArpPacketField:
     def LOG_INFO(self, status):
         logging.info("[ARP][" + status + "]:" + " [FROM] IP:" + util.ip_to_string(self["sender_ip_addr"])
                      + " MAC:" + util.bytes_to_string(self["sender_mac_addr"]) + " [TO] IP:" +
-                     util.ip_to_string(self["target_ip_addr"]) + " MAC:" + util.bytes_to_string(self["target_mac_add"]))
+                     util.ip_to_string(self["target_ip_addr"]) + " MAC:" + util.bytes_to_string(self["target_mac_addr"]))
+
+
 class Arp:
     def __init__(self):
         pass
@@ -84,7 +86,7 @@ class Arp:
             reply_packet["sender_ip_addr"] = link.my_ip_addr()
             reply_packet["target_mac_addr"] = arp_packet["sender_mac_addr"]
 
-            arp_packet.LOG_INFO("SEND RESPONSE")
+            reply_packet.LOG_INFO("SEND RESPONSE")
 
             packet = MetaPacket(Arp.prot_type(), Ethernet.prot_type(), reply_packet.encode())
             packet.set_ip_addr(reply_packet["target_ip_addr"])
