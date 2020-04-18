@@ -19,20 +19,20 @@ class ArpPacketField:
         }
         self.data = bytearray(28)
 
-    def __setitem__(self, key: str, value: bytearray) -> None:
+    def __setitem__(self, key: str, value: int) -> None:
         l, r = self.attr[key]
-        self.data[l:r] = value
+        self.data[l:r] = int.to_bytes(value, r - l, 'big')
 
-    def __getitem__(self, item: str) -> bytearray:
+    def __getitem__(self, item: str) -> int:
         l, r = self.attr[item]
         value = self.data[l:r]
-        return value
+        return int.from_bytes(value, 'big')
 
     def set_ipv4_ethernet(self):
-        self.__setitem__("hard_type", bytearray.fromhex("0001"))
-        self.__setitem__("prot_type", bytearray.fromhex("0800"))
-        self.__setitem__("hard_size", bytearray.fromhex("06"))
-        self.__setitem__("prot_size", bytearray.fromhex("04"))
+        self.__setitem__("hard_type", 0x0001)
+        self.__setitem__("prot_type", 0x0800)
+        self.__setitem__("hard_size", 0x06)
+        self.__setitem__("prot_size", 0x04)
 
     def encode(self):
         return self.data
@@ -41,9 +41,11 @@ class ArpPacketField:
         self.data = buf
 
     def LOG_INFO(self, status):
-        logging.info("[ARP][" + status + "]:" + " [FROM] IP:" + util.ip_to_string(self["sender_ip_addr"])
-                     + " MAC:" + util.bytes_to_string(self["sender_mac_addr"]) + " [TO] IP:" +
-                     util.ip_to_string(self["target_ip_addr"]) + " MAC:" + util.bytes_to_string(self["target_mac_addr"]))
+        ms = "[%s]: [IP: %s, MAC: %s] -> [IP: %s, MAC: %s]"
+        logging.info(ms, status, util.ip_i2s(self["sender_ip_addr"]),
+                     util.mac_i2s(self["sender_mac_addr"]),
+                     util.ip_i2s(self["target_ip_addr"]),
+                     util.mac_i2s(self["target_mac_addr"]))
 
 
 class Arp:
@@ -52,49 +54,35 @@ class Arp:
 
     @staticmethod
     def prot_type():
-        return "0806"
+        return 0x0806
 
     def write_packet(self, link, ip_addr: bytearray):
         pass
-        # query_packet = ArpPacketField()
-        # query_packet.set_ipv4_ethernet()
-        # query_packet["op"] = bytearray.fromhex("0001")
-        # query_packet["sender_mac_addr"] = link.my_mac_addr()
-        # query_packet["target_mac_addr"] = bytearray.fromhex("FFFFFFFFFFFF")
-        # query_packet["sender_ip_addr"] = link.my_ip_addr()
-        # query_packet["target_ip_addr"] = ip_addr
-        #
-        # packet = Packet(self.prot_type(), Ethernet.prot_type(), query_packet.encode())
-        #
-        # link.write_packet(packet)
-        # logging.info("[ARP] query send")
 
     def handle_packet(self, link, packet: MetaPacket) -> None:
-        packet.LOG_INFO("RECV")
 
         arp_packet = ArpPacketField()
         arp_packet.decode(packet.payload())
 
-        if arp_packet["op"] == bytes.fromhex("0001"):  # request
-            arp_packet.LOG_INFO("RECV REQUEST")
+        if arp_packet["op"] == 0x01:  # request
+            arp_packet.LOG_INFO("ARP TAKE REQUEST")
 
             reply_packet = ArpPacketField()
             reply_packet.set_ipv4_ethernet()
-            reply_packet["op"] = bytearray.fromhex("0002")
+            reply_packet["op"] = 0x02
             reply_packet["sender_mac_addr"] = link.my_mac_addr()
             reply_packet["target_ip_addr"] = arp_packet["sender_ip_addr"]
             reply_packet["sender_ip_addr"] = link.my_ip_addr()
             reply_packet["target_mac_addr"] = arp_packet["sender_mac_addr"]
 
-            reply_packet.LOG_INFO("SEND RESPONSE")
+            reply_packet.LOG_INFO("ARP -> LINK")
 
             packet = MetaPacket(Arp.prot_type(), Ethernet.prot_type(), reply_packet.encode())
             packet.set_ip_addr(reply_packet["target_ip_addr"])
             packet.set_mac_addr(reply_packet["target_mac_addr"])
 
-            packet.LOG_INFO("SEND")
             link.write_packet(packet)
 
-        if arp_packet["op"] == bytes.fromhex("0002"):  # reply
+        if arp_packet["op"] == 0x02:  # reply
+            arp_packet.LOG_INFO("ARP TAKE REPLY")
             link.add_cache(arp_packet["sender_ip_addr"], arp_packet["sender_mac_addr"])
-            logging.info("[ARP] recv arp reply")

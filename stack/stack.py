@@ -1,4 +1,6 @@
 import logging
+
+from header.metapacket import MetaPacket
 from link.link import Link
 
 
@@ -15,10 +17,10 @@ class Stack:
     def set_dev(self, dev):
         self.link_dev = dev
 
-    def my_mac_addr(self):
+    def my_mac_addr(self) -> int:
         return self.link_dev.my_mac_addr()
 
-    def my_ip_addr(self):
+    def my_ip_addr(self) -> int:
         return self.link_dev.my_ip_addr()
 
     def set_link_layer(self, link):
@@ -33,40 +35,38 @@ class Stack:
 
     def register_link_protocol(self, link_protocol):
         if not self.link_layer:
-            logging.error("[STACK] register link: " + link_protocol.prot_type())
+            logging.error("[STACK] register link: " + hex(link_protocol.prot_type()))
             return
-        logging.info("[STACK] register link: " + link_protocol.prot_type())
+        logging.info("[STACK] register link: " + hex(link_protocol.prot_type()))
         self.link_layer.register(link_protocol)
 
     def register_network_protocol(self, network_protocol):
         if not self.link_layer:
-            logging.error("[STACK] register network: " + network_protocol.prot_type())
+            logging.error("[STACK] register network: " + hex(network_protocol.prot_type()))
             return
-        logging.info("[STACK] register network: " + network_protocol.prot_type())
+        logging.info("[STACK] register network: " + hex(network_protocol.prot_type()))
         self.network_layer.register(network_protocol)
 
     def register_transport_protocol(self, transport_protocol):
         if not self.link_layer:
-            logging.error("[STACK] register transport: " + transport_protocol.prot_type())
+            logging.error("[STACK] register transport: " + hex(transport_protocol.prot_type()))
             return
-        logging.info("[STACK] register transport: " + transport_protocol.prot_type())
+        logging.info("[STACK] register transport: " + hex(transport_protocol.prot_type()))
         self.transport_layer.register(transport_protocol)
 
-    def deliver_link(self, link_packet):
+    def deliver_link(self, link_packet: MetaPacket):
         if not self.link_layer:
             return
         self.link_layer.handle_packet(link_packet)
 
-    def deliver_network(self, network_packet) -> None:
+    def deliver_network(self, network_packet: MetaPacket) -> None:
         if not self.link_layer:
             return
         self.network_layer.handle_packet(network_packet)
 
-    def deliver_transport(self, transport_packet) -> None:
+    def deliver_transport(self, transport_packet: MetaPacket) -> None:
         if not self.link_layer:
             return
         self.transport_layer.handle_packet(transport_packet)
 
-    def write_dev(self, packet):
-        self.link_dev.write_packet(packet)
 

@@ -4,30 +4,28 @@ from header.metapacket import MetaPacket
 from header.arp import ArpPacketField
 
 
-def write_packet(link, ip_addr: bytearray):
+def write_packet(link, ip_addr: int):
     query_packet = ArpPacketField()
     query_packet.set_ipv4_ethernet()
-    query_packet["op"] = bytearray.fromhex("0001")
+    query_packet["op"] = 0x0001
     query_packet["sender_mac_addr"] = link.my_mac_addr()
-    query_packet["target_mac_addr"] = bytearray.fromhex("FFFFFFFFFFFF")
+    query_packet["target_mac_addr"] = 0xFFFFFFFFFFFF
     query_packet["sender_ip_addr"] = link.my_ip_addr()
     query_packet["target_ip_addr"] = ip_addr
 
-    packet = MetaPacket("0806", "FFFF", query_packet.encode())
+    query_packet.LOG_INFO("SEND REQUEST")
+    packet = MetaPacket(0x8060, 0xFFFF, query_packet.encode())
 
     link.write_packet(packet)
-    logging.info("[LINK] query send")
 
 class ArpCache:
     def __init__(self):
         self.cache = {}
 
-    def add_cache(self, ip_addr: bytearray, mac_addr: bytearray):
-        ip_addr = int.from_bytes(ip_addr, 'big')
+    def add_cache(self, ip_addr: int, mac_addr: int):
         self.cache[ip_addr] = mac_addr
 
-    def query(self, ip_addr: bytearray):
-        ip_addr = int.from_bytes(ip_addr, 'big')
+    def query(self, ip_addr: int):
         if ip_addr in self.cache:
             return self.cache[ip_addr]
         else:
@@ -54,7 +52,7 @@ class Link:
     def hook_ip_mac(self, packet: MetaPacket):
         if packet.ip_addr() is not None and packet.mac_addr() is not None:
             self.arp_cache.add_cache(packet.ip_addr(), packet.mac_addr())
-        elif packet.mac_addr() is None:
+        elif packet.mac_addr() is None and packet.ip_addr() is not None:
             while True:
                 mac_addr = self.arp_cache.query(packet.ip_addr())
                 if mac_addr is not None:
@@ -71,19 +69,19 @@ class Link:
         packet = self.hook_ip_mac(packet)
         prot_type = packet.target_prot_type()
         if prot_type in self.link_protocol_handle:
+            packet.LOG_INFO("LINK TAKE")
             self.link_protocol_handle[prot_type](self, packet)
         else:
+            packet.LOG_INFO("LINK -> NETWORK")
             self.stack.deliver_network(packet)
-            logging.error("[LINK] error handle packet type:" + prot_type)
-            logging.error("[LINK] deliver to network:" + prot_type)
+
 
     def write_packet(self, packet: MetaPacket):
+        packet.LOG_INFO("LINK TAKE")
         packet = self.hook_ip_mac(packet)
         prot_type = packet.target_prot_type()
         if prot_type in self.link_protocol_write:
             self.link_protocol_write[prot_type](self, packet)
         else:
-            logging.error("[LINK] error write packet type:" + prot_type)
+            logging.error("[LINK] error write packet type:" + hex(prot_type))
 
-    def write_dev(self, packet):
-        self.stack.write_dev(packet)

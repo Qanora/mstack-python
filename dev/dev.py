@@ -15,12 +15,12 @@ class Dev:
 
     @staticmethod
     def prot_type():
-        return "0000"
+        return 0x0000
 
-    def my_mac_addr(self):
-        return self.tuntap.mac_addr()
+    def my_mac_addr(self) -> int:
+        return int.from_bytes(self.tuntap.mac_addr(), 'big')
 
-    def my_ip_addr(self):
+    def my_ip_addr(self) -> int:
         return self._my_ip_addr
 
     def attach(self, stack: Stack) -> None:
@@ -31,8 +31,8 @@ class Dev:
     def is_attach(self) -> bool:
         return self._is_attach
 
-    def write_packet(self, link_packet) -> None:
-        self.tuntap.no_blocking_write(link_packet)
+    def write_packet(self, link, link_packet) -> None:
+        self.tuntap.no_blocking_write(link_packet.payload())
 
     def handle_packet(self, link, packet: MetaPacket):
         logging.error("[DEV] should not handle packet")
@@ -41,6 +41,7 @@ class Dev:
         self.stack.deliver_link(link_packet)
 
     def read_dispatch(self, buf) -> None:
-        packet = MetaPacket("0000", Ethernet.prot_type(), buf)
-        packet.set_mac_addr(bytearray.fromhex("000000000000"))
+        packet = MetaPacket(0x0000, Ethernet.prot_type(), buf)
+        packet.set_mac_addr(0x000000000000)
+        packet.LOG_INFO("DEV -> ETHERNET")
         self.deliver_link(packet)

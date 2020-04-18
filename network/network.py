@@ -16,17 +16,17 @@ class Network:
     def write_packet(self, packet: MetaPacket):
         prot_type = packet.target_prot_type()
         if prot_type in self.network_protocol_write:
-            self.network_protocol_handle[prot_type](self, packet)
+            self.network_protocol_write[prot_type](self, packet)
         else:
-            logging.error("[NETWORK] error write packet type:" + prot_type)
+            logging.error("[NETWORK] error write packet type:" + hex(prot_type))
 
     def handle_packet(self, packet: MetaPacket):
-        packet.LOG_INFO("NETWORK RECV")
+        packet.LOG_INFO("NETWORK TAKE")
         prot_type = packet.target_prot_type()
         if prot_type in self.network_protocol_handle:
             self.network_protocol_handle[prot_type](self, packet)
         else:
-            logging.error("[NETWORK] error handle packet type:" + prot_type)
+            logging.error("[NETWORK] error handle packet type:" + hex(prot_type))
 
     def write_link(self, packet: MetaPacket):
         self.stack.deliver_link(packet)
