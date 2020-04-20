@@ -22,24 +22,27 @@ class Ipv4PacketField:
 
     def get_header_length(self):
         ihl = self['ihl']
-        return ihl*5
+        return ihl*4
 
     def set_checksum(self):
         self['header_checksum'] = 0x0000
         bt = 0
         for i in range(0, self.get_header_length(), 2):
-            bt += int.from_bytes(self.data[i:i + 2], 'little')
-        bt = (bt >> 16) + (bt & 0xff)
+            bt += int.from_bytes(self.data[i:i + 2], 'big')
+        bt = (bt >> 16) + (bt & 0xffff)
+        bt += (bt >> 16)
         bt = (~bt) & 0xffff
         self['header_checksum'] = bt
 
     def set_ipv4_packet(self):
         l, r = self.attr['version+ihl']
-        self.data[l:r] = bytearray.fromhex("58")
+        self.data[l:r] = bytearray.fromhex("45")
         l, r = self.attr['type_of_service']
         self.data[l:r] = bytearray.fromhex("00")
         l, r = self.attr['ttl']
-        self.data[l:r] = bytearray.fromhex("20")
+        self.data[l:r] = bytearray.fromhex("40")
+        l, r = self.attr['r+df+mf+fo']
+        self.data[l:r] = bytearray.fromhex("0000")
 
     def __getitem__(self, item) -> int:
         if item == 'version':
@@ -89,6 +92,9 @@ class Ipv4PacketField:
 
     def is_valid(self) -> bool:
         return True
+
+    def get_total_length(self) -> int:
+        return len(self.data)
 
     def LOG_INFO(self, status):
         ms = "[%s]: [%s] [%s -> %s]"
@@ -154,7 +160,7 @@ class Ipv4Fragments:
         dst_ip_addr = ipv4_packet["dst_ip_addr"]
         return id, prot_type, src_ip_addr, dst_ip_addr
 
-
+    #TODO
     def cut(self, ipv4_packt: Ipv4PacketField) -> [Ipv4PacketField]:
         return []
 
@@ -162,6 +168,7 @@ class Ipv4Fragments:
 class Ipv4:
     def __init__(self):
         self.ipv4_fragments = Ipv4Fragments()
+        self.id = 0
 
     @staticmethod
     def prot_type():
@@ -178,7 +185,7 @@ class Ipv4:
         if ipv4_packet is None:
             return
 
-        packet = MetaPacket(self.prot_type(), ipv4_packet["prot_type"], ipv4_packet.get_payload())
+        packet = MetaPacket(self.prot_type(), ipv4_packet["prot_type"], ipv4_packet.get_payload(), False)
         packet.set_ip_addr(ipv4_packet["src_ip_addr"])
         packet.LOG_INFO("IPV4 -> NETWORK")
 
@@ -186,7 +193,18 @@ class Ipv4:
 
     def write_packet(self, network: Network, packet: MetaPacket) -> None:
         ipv4_packet = Ipv4PacketField()
-        # ipv4_packet[""]
-        # for ipv4_packet in self.ipv4_fragments.cut(ipv4_packet):
-        #    packet = MetaPacket(self.prot_type(), Ethernet.prot_type(), ipv4_packet.encode())
-        #    network.write_link(packet)
+        ipv4_packet.set_ipv4_packet()
+        ipv4_packet.LOG_INFO("IPV4 TAKE")
+        ipv4_packet["prot_type"] = packet.sender_prot_type()
+        ipv4_packet["src_ip_addr"] = network.my_ip_addr()
+        ipv4_packet["dst_ip_addr"] = packet.ip_addr()
+        ipv4_packet["id"] = self.id
+        self.id += 1
+        ipv4_packet.add_payload(packet.payload())
+        ipv4_packet["total_length"] = ipv4_packet.get_total_length()
+        ipv4_packet.set_checksum()
+
+        t_packet = MetaPacket(self.prot_type(), Ethernet.prot_type(), ipv4_packet.encode(), True)
+        t_packet.set_ip_addr(packet.ip_addr())
+        t_packet.LOG_INFO("IPV4 -> ETHERNET")
+        network.deliver_link(t_packet)

@@ -20,8 +20,9 @@ class IcmpPacketField:
         self['checksum'] = 0x0000
         bt = 0
         for i in range(0, len(self.data), 2):
-            bt += int.from_bytes(self.data[i:i+2], 'little')
-        bt = (bt >> 16) + (bt & 0xff)
+            bt += int.from_bytes(self.data[i:i + 2], 'big')
+        bt = (bt >> 16) + (bt & 0xffff)
+        bt += (bt >> 16)
         bt = (~bt) & 0xffff
         self['checksum'] = bt
 
@@ -66,7 +67,7 @@ class ICMP:
     def handle_packet(self, network: Network, packet: MetaPacket):
         icmp_packet = IcmpPacketField()
         icmp_packet.decode(packet.payload())
-        icmp_packet.LOG_INFO("ICMP TAKE")
+        packet.LOG_INFO("ICMP TAKE")
         if icmp_packet["prot_type"] == 8:
             icmp_packet.LOG_INFO("ICMP TAKE ECHO REQUEST")
 
@@ -76,9 +77,11 @@ class ICMP:
             reply_packet["code"] = 0x00
             reply_packet["id"] = icmp_packet["id"]
             reply_packet.set_payload(icmp_packet.get_payload())
+
             reply_packet.set_checksum()
 
-            packet = MetaPacket(packet.target_prot_type(), Ipv4.prot_type(), reply_packet)
-            packet.set_ip_addr(packet.ip_addr())
-            packet.LOG_INFO("ICMP -> IPV4")
-            network.write_packet(packet)
+            t_packet = MetaPacket(packet.target_prot_type(), Ipv4.prot_type(), reply_packet.encode(), True)
+            t_packet.set_ip_addr(packet.ip_addr())
+            t_packet.LOG_INFO("ICMP -> IPV4")
+
+            network.handle_packet(t_packet)

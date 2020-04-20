@@ -37,11 +37,8 @@ class Dev:
     def handle_packet(self, link, packet: MetaPacket):
         logging.error("[DEV] should not handle packet")
 
-    def deliver_link(self, link_packet: MetaPacket) -> None:
-        self.stack.deliver_link(link_packet)
-
     def read_dispatch(self, buf) -> None:
-        packet = MetaPacket(0x0000, Ethernet.prot_type(), buf)
-        packet.set_mac_addr(0x000000000000)
+        packet = MetaPacket(0x0000, Ethernet.prot_type(), buf, False)
+        # packet.set_mac_addr(0x000000000000)
         packet.LOG_INFO("DEV -> ETHERNET")
-        self.deliver_link(packet)
+        self.stack.deliver_link(packet)

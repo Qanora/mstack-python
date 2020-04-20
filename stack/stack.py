@@ -69,4 +69,8 @@ class Stack:
             return
         self.transport_layer.handle_packet(transport_packet)
 
+    def write_link(self, link_packet: MetaPacket) -> None :
+        if not self.link_layer:
+            return
+        self.link_layer.write_packet(link_packet)
 

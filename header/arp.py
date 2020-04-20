@@ -56,11 +56,10 @@ class Arp:
     def prot_type():
         return 0x0806
 
-    def write_packet(self, link, ip_addr: bytearray):
+    def write_packet(self, link, packet: MetaPacket):
         pass
 
     def handle_packet(self, link, packet: MetaPacket) -> None:
-
         arp_packet = ArpPacketField()
         arp_packet.decode(packet.payload())
 
@@ -77,11 +76,10 @@ class Arp:
 
             reply_packet.LOG_INFO("ARP -> LINK")
 
-            packet = MetaPacket(Arp.prot_type(), Ethernet.prot_type(), reply_packet.encode())
+            packet = MetaPacket(Arp.prot_type(), Ethernet.prot_type(), reply_packet.encode(), True)
             packet.set_ip_addr(reply_packet["target_ip_addr"])
             packet.set_mac_addr(reply_packet["target_mac_addr"])
-
-            link.write_packet(packet)
+            link.handle_packet(packet)
 
         if arp_packet["op"] == 0x02:  # reply
             arp_packet.LOG_INFO("ARP TAKE REPLY")

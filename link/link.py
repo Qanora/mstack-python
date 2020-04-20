@@ -14,9 +14,9 @@ def write_packet(link, ip_addr: int):
     query_packet["target_ip_addr"] = ip_addr
 
     query_packet.LOG_INFO("SEND REQUEST")
-    packet = MetaPacket(0x8060, 0xFFFF, query_packet.encode())
-
+    packet = MetaPacket(0x8060, 0xFFFF, query_packet.encode(), True)
     link.write_packet(packet)
+
 
 class ArpCache:
     def __init__(self):
@@ -30,6 +30,7 @@ class ArpCache:
             return self.cache[ip_addr]
         else:
             return None
+
 
 class Link:
     def __init__(self, stack):
@@ -66,6 +67,12 @@ class Link:
         self.arp_cache.add_cache(ip_addr, mac_add)
 
     def handle_packet(self, packet: MetaPacket):
+        if packet.is_write():
+            self.write_packet(packet)
+        else:
+            self.read_packet(packet)
+
+    def read_packet(self, packet: MetaPacket):
         packet = self.hook_ip_mac(packet)
         prot_type = packet.target_prot_type()
         if prot_type in self.link_protocol_handle:
@@ -74,7 +81,6 @@ class Link:
         else:
             packet.LOG_INFO("LINK -> NETWORK")
             self.stack.deliver_network(packet)
-
 
     def write_packet(self, packet: MetaPacket):
         packet.LOG_INFO("LINK TAKE")

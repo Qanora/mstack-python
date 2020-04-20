@@ -53,7 +53,7 @@ class Ethernet:
         e_packet = EthernetPacketField()
         e_packet.decode(packet.payload())
 
-        packet = MetaPacket(Ethernet.prot_type(), e_packet["prot_type"], e_packet.get_payload())
+        packet = MetaPacket(Ethernet.prot_type(), e_packet["prot_type"], e_packet.get_payload(), False)
         packet.set_mac_addr(e_packet["src_mac_addr"])
 
         packet.LOG_INFO("ETHERNET -> LINK")
@@ -68,6 +68,6 @@ class Ethernet:
         e_packet["prot_type"] = packet.sender_prot_type()
         e_packet.set_payload(packet.payload())
 
-        packet = MetaPacket(self.prot_type(), 0x0000, e_packet.encode())
+        packet = MetaPacket(self.prot_type(), 0x0000, e_packet.encode(), True)
         packet.LOG_INFO("ETHERNET -> DEV")
-        link.write_packet(packet)
+        link.handle_packet(packet)

@@ -41,13 +41,6 @@ class Tuntap:
     def mtu(self) -> int:
         return self.dev.mtu
 
-    # def blocking_read(self, size: int) -> bytearray:
-    #     while True:
-    #         event = self.sel.select()
-    #         for key, mask in event:
-    #             buf = os.read(key.fd, size)
-    #             yield buf
-
     def no_blocking_write(self, data: bytearray) -> None:
         self.dev.write(bytes(data))
 
