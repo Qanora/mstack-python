@@ -17,13 +17,13 @@ class Network:
         self.network_protocol_write[prot_type] = network_protocol.write_packet
 
     def handle_packet(self, packet: MetaPacket):
-        if packet.is_write():
+        if packet.state == "OUT":
             self.write_packet(packet)
         else:
             self.read_packet(packet)
 
     def write_packet(self, packet: MetaPacket):
-        prot_type = packet.target_prot_type()
+        prot_type = packet.target_prot_type
         if prot_type in self.network_protocol_write:
             self.network_protocol_write[prot_type](self, packet)
         else:
@@ -31,7 +31,7 @@ class Network:
 
     def read_packet(self, packet: MetaPacket):
         packet.LOG_INFO("NETWORK TAKE")
-        prot_type = packet.target_prot_type()
+        prot_type = packet.target_prot_type
         if prot_type in self.network_protocol_handle:
             self.network_protocol_handle[prot_type](self, packet)
         else:

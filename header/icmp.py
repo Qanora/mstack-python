@@ -66,7 +66,7 @@ class ICMP:
 
     def handle_packet(self, network: Network, packet: MetaPacket):
         icmp_packet = IcmpPacketField()
-        icmp_packet.decode(packet.payload())
+        icmp_packet.decode(packet.payload)
         packet.LOG_INFO("ICMP TAKE")
         if icmp_packet["prot_type"] == 8:
             icmp_packet.LOG_INFO("ICMP TAKE ECHO REQUEST")
@@ -80,8 +80,9 @@ class ICMP:
 
             reply_packet.set_checksum()
 
-            t_packet = MetaPacket(packet.target_prot_type(), Ipv4.prot_type(), reply_packet.encode(), True)
-            t_packet.set_ip_addr(packet.ip_addr())
-            t_packet.LOG_INFO("ICMP -> IPV4")
-
-            network.handle_packet(t_packet)
+            packet.sender_prot_type = self.prot_type()
+            packet.target_prot_type = Ipv4.prot_type()
+            packet.payload = reply_packet.encode()
+            packet.state = "OUT"
+            packet.LOG_INFO("ICMP -> IPV4")
+            network.handle_packet(packet)

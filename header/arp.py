@@ -41,7 +41,7 @@ class ArpPacketField:
         self.data = buf
 
     def LOG_INFO(self, status):
-        ms = "[%s]: [IP: %s, MAC: %s] -> [IP: %s, MAC: %s]"
+        ms = "[%s] IP: %s, MAC: %s -> IP: %s, MAC: %s"
         logging.info(ms, status, util.ip_i2s(self["sender_ip_addr"]),
                      util.mac_i2s(self["sender_mac_addr"]),
                      util.ip_i2s(self["target_ip_addr"]),
@@ -60,8 +60,9 @@ class Arp:
         pass
 
     def handle_packet(self, link, packet: MetaPacket) -> None:
+        packet.LOG_INFO("ARP TAKE")
         arp_packet = ArpPacketField()
-        arp_packet.decode(packet.payload())
+        arp_packet.decode(packet.payload)
 
         if arp_packet["op"] == 0x01:  # request
             arp_packet.LOG_INFO("ARP TAKE REQUEST")
@@ -74,11 +75,14 @@ class Arp:
             reply_packet["sender_ip_addr"] = link.my_ip_addr()
             reply_packet["target_mac_addr"] = arp_packet["sender_mac_addr"]
 
-            reply_packet.LOG_INFO("ARP -> LINK")
-
-            packet = MetaPacket(Arp.prot_type(), Ethernet.prot_type(), reply_packet.encode(), True)
-            packet.set_ip_addr(reply_packet["target_ip_addr"])
-            packet.set_mac_addr(reply_packet["target_mac_addr"])
+            reply_packet.LOG_INFO("ARP SEND RESPONSE")
+            packet.sender_prot_type = Arp.prot_type()
+            packet.target_prot_type = Ethernet.prot_type()
+            packet.payload = reply_packet.encode()
+            packet.ip_addr = reply_packet["target_ip_addr"]
+            packet.mac_addr= reply_packet["target_mac_addr"]
+            packet.state = "OUT"
+            packet.LOG_INFO("ARP -> ETHERNET")
             link.handle_packet(packet)
 
         if arp_packet["op"] == 0x02:  # reply

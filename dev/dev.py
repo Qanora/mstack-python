@@ -31,14 +31,14 @@ class Dev:
     def is_attach(self) -> bool:
         return self._is_attach
 
-    def write_packet(self, link, link_packet) -> None:
-        self.tuntap.no_blocking_write(link_packet.payload())
+    def write_packet(self, link, packet: MetaPacket) -> None:
+        packet.LOG_INFO("DEV SEND")
+        self.tuntap.no_blocking_write(packet.payload)
 
     def handle_packet(self, link, packet: MetaPacket):
         logging.error("[DEV] should not handle packet")
 
     def read_dispatch(self, buf) -> None:
-        packet = MetaPacket(0x0000, Ethernet.prot_type(), buf, False)
-        # packet.set_mac_addr(0x000000000000)
+        packet = MetaPacket(0x0000, Ethernet.prot_type(), buf)
         packet.LOG_INFO("DEV -> ETHERNET")
         self.stack.deliver_link(packet)

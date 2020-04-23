@@ -33,8 +33,8 @@ class EthernetPacketField:
     def encode(self) -> bytearray:
         return self.data
 
-    def LOG_INFO(self, status:str):
-        ms = "[%s]: [%s] [%s -> %s]"
+    def LOG_INFO(self, status: str):
+        ms = "[%s %s] %s -> %s"
         prot_type = hex(self["prot_type"])
         src_mac_addr = util.mac_i2s(self["src_mac_addr"])
         dst_mac_addr = util.mac_i2s(self["dst_mac_addr"])
@@ -51,10 +51,12 @@ class Ethernet:
     def handle_packet(self, link, packet: MetaPacket):
 
         e_packet = EthernetPacketField()
-        e_packet.decode(packet.payload())
+        e_packet.decode(packet.payload)
 
-        packet = MetaPacket(Ethernet.prot_type(), e_packet["prot_type"], e_packet.get_payload(), False)
-        packet.set_mac_addr(e_packet["src_mac_addr"])
+        packet.sender_prot_type = self.prot_type()
+        packet.target_prot_type = e_packet["prot_type"]
+        packet.payload = e_packet.get_payload()
+        packet.mac_addr = e_packet["src_mac_addr"]
 
         packet.LOG_INFO("ETHERNET -> LINK")
         link.handle_packet(packet)
@@ -63,11 +65,13 @@ class Ethernet:
         packet.LOG_INFO("ETHERNET TAKE")
 
         e_packet = EthernetPacketField()
-        e_packet["dst_mac_addr"] = packet.mac_addr()
+        e_packet["dst_mac_addr"] = packet.mac_addr
         e_packet["src_mac_addr"] = link.my_mac_addr()
-        e_packet["prot_type"] = packet.sender_prot_type()
-        e_packet.set_payload(packet.payload())
+        e_packet["prot_type"] = packet.sender_prot_type
+        e_packet.set_payload(packet.payload)
 
-        packet = MetaPacket(self.prot_type(), 0x0000, e_packet.encode(), True)
+        packet.sender_prot_type = self.prot_type()
+        packet.target_prot_type = 0x0000
+        packet.payload = e_packet.encode()
         packet.LOG_INFO("ETHERNET -> DEV")
         link.handle_packet(packet)

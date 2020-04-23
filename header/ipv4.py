@@ -175,9 +175,9 @@ class Ipv4:
         return 0x0800
 
     def handle_packet(self, network: Network, packet: MetaPacket) -> None:
+        packet.LOG_INFO("IPV4 TAKE")
         ipv4_packet = Ipv4PacketField()
-        ipv4_packet.LOG_INFO("IPV4 TAKE")
-        ipv4_packet.decode(packet.payload())
+        ipv4_packet.decode(packet.payload)
         if not ipv4_packet.is_valid():
             return
 
@@ -185,8 +185,10 @@ class Ipv4:
         if ipv4_packet is None:
             return
 
-        packet = MetaPacket(self.prot_type(), ipv4_packet["prot_type"], ipv4_packet.get_payload(), False)
-        packet.set_ip_addr(ipv4_packet["src_ip_addr"])
+        packet.sender_prot_type = self.prot_type()
+        packet.target_prot_type = ipv4_packet["prot_type"]
+        packet.payload = ipv4_packet.get_payload()
+        packet.ip_addr = ipv4_packet["src_ip_addr"]
         packet.LOG_INFO("IPV4 -> NETWORK")
 
         network.handle_packet(packet)
@@ -195,16 +197,18 @@ class Ipv4:
         ipv4_packet = Ipv4PacketField()
         ipv4_packet.set_ipv4_packet()
         ipv4_packet.LOG_INFO("IPV4 TAKE")
-        ipv4_packet["prot_type"] = packet.sender_prot_type()
+        ipv4_packet["prot_type"] = packet.sender_prot_type
         ipv4_packet["src_ip_addr"] = network.my_ip_addr()
-        ipv4_packet["dst_ip_addr"] = packet.ip_addr()
+        ipv4_packet["dst_ip_addr"] = packet.ip_addr
         ipv4_packet["id"] = self.id
         self.id += 1
-        ipv4_packet.add_payload(packet.payload())
+
+        ipv4_packet.add_payload(packet.payload)
         ipv4_packet["total_length"] = ipv4_packet.get_total_length()
         ipv4_packet.set_checksum()
 
-        t_packet = MetaPacket(self.prot_type(), Ethernet.prot_type(), ipv4_packet.encode(), True)
-        t_packet.set_ip_addr(packet.ip_addr())
-        t_packet.LOG_INFO("IPV4 -> ETHERNET")
-        network.deliver_link(t_packet)
+        packet.sender_prot_type = self.prot_type()
+        packet.target_prot_type = Ethernet.prot_type()
+        packet.payload = ipv4_packet.encode()
+        packet.LOG_INFO("IPV4 -> ETHERNET")
+        network.deliver_link(packet)
