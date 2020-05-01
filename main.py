@@ -1,15 +1,19 @@
+from demux.demux import Demux
+from demux.udpdev import UdpDev
 from dev.tuntap import Tuntap
 from dev.dev import Dev
-from header.ethernet import Ethernet
+from link.ethernet import Ethernet
 from stack.stack import Stack
 import asyncio
 import logging
-from header.arp import Arp
+from link.arp import Arp
 import ipaddress
 from link.link import Link
 from network.network import Network
-from header.ipv4 import Ipv4
-from header.icmp import ICMP
+from network.ipv4 import Ipv4
+from network.icmp import ICMP
+from transport.transport import Transport
+from transport.udp import Udp
 import util
 FORMAT = "%(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
@@ -51,7 +55,32 @@ stack.register_network_protocol(ipv4)
 icmp = ICMP()
 stack.register_network_protocol(icmp)
 
-stack.attch()
+
+transport = Transport(stack)
+stack.set_transport_layer(transport)
+
+udp = Udp()
+stack.register_transport_protocol(udp)
+
+demux = Demux(stack)
+stack.set_demux_layer(demux)
+
+udp_dev = UdpDev()
+stack.register_demux_dev(udp_dev)
+
+udp_endpoint = stack.new_endpoint(UdpDev.prot_type())
+
+udp_endpoint.bind(ip_addr="192.168.1.1", port=30000)
 
 loop = asyncio.get_event_loop()
+
+async def print_packet():
+    while True:
+        buf = await udp_endpoint.read()
+        print("GET PACKET:", buf)
+
+loop.create_task(print_packet())
+
+stack.attch()
 loop.run_forever()
+

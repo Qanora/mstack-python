@@ -1,7 +1,7 @@
 import logging
 
-from header.ethernet import Ethernet
-from header.metapacket import MetaPacket
+from link.ethernet import Ethernet
+from stack.metapacket import MetaPacket
 from dev.tuntap import Tuntap
 from stack.stack import Stack
 

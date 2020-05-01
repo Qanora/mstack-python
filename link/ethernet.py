@@ -1,5 +1,5 @@
 import logging
-from header.metapacket import MetaPacket
+from stack.metapacket import MetaPacket
 import util
 
 

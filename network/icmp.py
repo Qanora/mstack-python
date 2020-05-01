@@ -1,7 +1,7 @@
 import logging
 
-from header.ipv4 import Ipv4
-from header.metapacket import MetaPacket
+from network.ipv4 import Ipv4
+from stack.metapacket import MetaPacket
 from network.network import Network
 
 
@@ -59,7 +59,7 @@ class ICMP:
 
     @staticmethod
     def prot_type():
-        return 0x0001
+        return 0x01
 
     def write_packet(self, network: Network, packet: MetaPacket):
         pass

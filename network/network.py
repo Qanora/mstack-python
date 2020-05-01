@@ -1,4 +1,4 @@
-from header.metapacket import MetaPacket
+from stack.metapacket import MetaPacket
 import logging
 
 
@@ -35,7 +35,8 @@ class Network:
         if prot_type in self.network_protocol_handle:
             self.network_protocol_handle[prot_type](self, packet)
         else:
-            logging.error("[NETWORK] error handle packet type:" + hex(prot_type))
+            packet.LOG_INFO("NETWORK -> TRANSPORT")
+            self.deliver_transport(packet)
 
     def deliver_link(self, packet: MetaPacket):
         self.stack.deliver_link(packet)

@@ -14,6 +14,7 @@ class MetaPacket:
         self._payload = _payload
         self._mac_addr = None
         self._ip_addr = None
+        self._port = None
         self._status = "IN"
 
     def seq(self):
@@ -67,11 +68,19 @@ class MetaPacket:
     def mac_addr(self, value):
         self._mac_addr = value
 
+    @property
+    def port(self):
+        return self._port
+    @port.setter
+    def port(self, value):
+        self._port = value
+
     def LOG_INFO(self, message):
-        ms = "[NO.%d %s %s: %s -> %s] IP: %s, MAC: %s"
+        ms = "[NO.%d %s %s: %s -> %s] IP: %s, MAC: %s, PORT: %s"
         status = self.state
         s_prot_type = "None" if self.sender_prot_type is None else hex(self.sender_prot_type)
         t_prot_type = "None" if self.target_prot_type is None else hex(self.target_prot_type)
         ip_addr = "None" if self.ip_addr is None else util.ip_i2s(self.ip_addr)
         mac_addr = "None" if self.mac_addr is None else util.mac_i2s(self.mac_addr)
-        logging.info(ms, self.seq(), status, message, s_prot_type, t_prot_type, ip_addr, mac_addr)
+        port = "None" if self.port is None else str(self.port)
+        logging.info(ms, self.seq(), status, message, s_prot_type, t_prot_type, ip_addr, mac_addr, port)
