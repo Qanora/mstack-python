@@ -36,7 +36,7 @@ class Udp(Protocol):
         from core.sock import SockManager
         remote_info = ipv4_packet.src_ip_addr, udp_packet.src_port
         local_info = ipv4_packet.dst_ip_addr, udp_packet.dst_port
-        sock = SockManager.lookup_sock(Udp.PROT_TYPE, remote_info, local_info)
+        sock = SockManager.lookup_unidirectional_sock(Udp.PROT_TYPE, remote_info, local_info)
 
         sock._remote_ip_addr = ipv4_packet.src_ip_addr
         sock._remote_port = udp_packet.src_port

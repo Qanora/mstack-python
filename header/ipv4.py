@@ -54,14 +54,13 @@ class Ipv4(Protocol):
         elif ipv4_packet.prot_type == Udp.PROT_TYPE:
             Udp.recv(ipv4_packet)
         elif ipv4_packet.prot_type == Tcp.PROT_TYPE:
-            Tcp.recv(packet.payload)
+            Tcp.recv(ipv4_packet)
         else:
             ipv4_packet.LOG("error", "UNSUPPORT")
 
     @classmethod
     def write(cls, ipv4_packet, prot_type):
         if prot_type == Icmp.PROT_Type:
-
             ipv4_packet.id = Ipv4.id
             Ipv4.id += 1
 
@@ -72,6 +71,20 @@ class Ipv4(Protocol):
 
         if prot_type == Udp.PROT_TYPE:
             ipv4_packet.prot_type = Udp.PROT_TYPE
+            ipv4_packet.id = Ipv4.id
+            Ipv4.id += 1
+
+            ipv4_packet.version_ihl = 0x45
+            ipv4_packet.type_of_service = 0x00
+            ipv4_packet.total_length = len(ipv4_packet.buffer)
+            ipv4_packet.frag_offset = 0x0000
+            ipv4_packet.ttl = 0x40
+            ipv4_packet.header_checksum = 0x0000
+            ipv4_packet.header_checksum = util.checksum(ipv4_packet.header)
+            Ethernet.write(ipv4_packet, Ipv4.PROT_TYPE)
+
+        if prot_type == Tcp.PROT_TYPE:
+            ipv4_packet.prot_type = Tcp.PROT_TYPE
             ipv4_packet.id = Ipv4.id
             Ipv4.id += 1
 

@@ -4,7 +4,9 @@ from core.netdev import NetDevManager
 from core.tuntap import Tuntap
 from core.sock import SockManager
 from core.socket import Socket
+from header.tcp import Tcp
 from header.udp import Udp
+from core import util
 import asyncio
 logging.basicConfig(level=logging.INFO)
 route_addr = "192.168.1.0/24"
@@ -29,7 +31,15 @@ async def udp_test():
         socket.write(buf)
         print("get", buf)
 
-loop = asyncio.get_event_loop()
-loop.create_task(udp_test())
 
+async def tcp_test():
+    socket = Socket(Tcp.PROT_TYPE, "192.168.1.1", 30000)
+    socket.listen()
+    while True:
+        sock = await socket.accept()
+        print(util.ip_i2s(sock.remote_ip_addr), sock.remote_port)
+
+loop = asyncio.get_event_loop()
+# loop.create_task(udp_test())
+loop.create_task(tcp_test())
 loop.run_forever()
