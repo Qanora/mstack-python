@@ -1,8 +1,8 @@
 import asyncio
 from header.udp import Udp
 from header.tcp import Tcp
-
-
+import logging
+from core import util
 class Sock:
     def __init__(self, prot_type, remote_info, local_info, queue_mx_size=500):
         self._prot_type = prot_type
@@ -20,6 +20,16 @@ class Sock:
         self._accept_queue = asyncio.Queue(self._queue_mx_size)
         self._seq = 0
 
+
+    def LOG(self, info, status):
+        log = getattr(logging, info)
+        remote_ip_addr, remote_port = "None", "None"
+        if self.remote_ip_addr is not None:
+            remote_ip_addr = util.ip_i2s(self.remote_ip_addr)
+        if self.remote_port is not None:
+            remote_port = str(self.remote_port)
+        local_ip_addr, local_port = util.ip_i2s(self.local_ip_addr), str(self.local_port)
+        log("[SOCK %s %s] (%s:%s -> %s:%s)", status, self.state, remote_ip_addr, remote_port, local_ip_addr, local_port)
     @property
     def seq(self):
         return self._seq

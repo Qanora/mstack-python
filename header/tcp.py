@@ -10,7 +10,7 @@ class FakeHead(Structure):
         (TypeLen.L4, "dst_ip_addr"),
         (TypeLen.L1, "NULL"),
         (TypeLen.L1, "prot_type"),
-        (TypeLen.L2, "length")
+        (TypeLen.L2, "length"),
     ]
 
 class TcpPacket(Structure):
@@ -25,13 +25,24 @@ class TcpPacket(Structure):
         (TypeLen.L2, "urgent_pointer"),
     ]
 
+    def __init__(self, bytedata=None):
+        super().__init__(bytedata)
+        option_length = self.length - len(self.header)
+        self.option = self.payload[:option_length]
+        self.payload = self.payload[option_length:]
+
+    @property
+    def buffer(self):
+        return self.header + self.option + self.payload
+
     @property
     def length(self):
-        return self.flags >> 11
+        return (self.flags >> 12) * 4
 
     @length.setter
     def length(self, value):
-        self.flags = (value << 11) + (self.flags & ((1 << 11) - 1))
+        value = value // 4
+        self.flags = (value << 12) + (self.flags & ((1 << 12) - 1))
 
     @property
     def ack(self):
@@ -90,8 +101,8 @@ class TcpPacket(Structure):
 
     def LOG(self, level, status):
         log = getattr(logging, level)
-        log("[TCP %s] (%d -> %d) seq: %d, ack: %d, flags: %s", status, self.src_port, self.dst_port,
-            self.seq_no, self.ack_no, bin(self.flags)[2:][11:])
+        log("[TCP %s] (%d -> %d) seq: %d, ack: %d, flags: %s - %d %d %d %d", status, self.src_port, self.dst_port,
+            self.seq_no, self.ack_no, bin(self.flags)[2:][11:], len(self.header), len(self.option), len(self.payload), self.length)
 
 
 class Tcp(Protocol):
@@ -110,7 +121,11 @@ class Tcp(Protocol):
             if sock is None:
                 tcp_packet.LOG("error", "no sock")
                 return
+            sock = SockManager.register_bidirectional_sock(Tcp.PROT_TYPE, remote_info, local_info)
+            sock.state = "TCP_LISTEN"
+        sock.LOG("info", "START")
         Tcp.tcp_state_transform(sock, ipv4_packet, tcp_packet)
+        sock.LOG("info", "FINISH")
 
     @classmethod
     def tcp_state_transform(cls, sock, ipv4_packet, tcp_packet):
@@ -118,7 +133,6 @@ class Tcp(Protocol):
             Tcp.tcp_close(sock, ipv4_packet, tcp_packet)
             return
         if sock.state == "TCP_LISTEN":
-            tcp_packet.LOG("info", "LISTEN TAKE")
             Tcp.tcp_listen(sock, ipv4_packet, tcp_packet)
             return
         if sock.state == "TCP_SYN_SENT":
@@ -126,63 +140,70 @@ class Tcp(Protocol):
             return
 
         # first check sequence number
-        if not Tcp.tcp_verify_segement(sock, ipv4_packet, tcp_packet):
-            if tcp_packet.rst:
-                Tcp.tcp_send_ack(sock, ipv4_packet, tcp_packet)
-            return
+        # if not Tcp.tcp_verify_segement(sock, ipv4_packet, tcp_packet):
+        #     if tcp_packet.rst:
+        #         Tcp.tcp_send_ack(sock, ipv4_packet, tcp_packet)
+        #     return
 
         # second check the RST bit
-        if tcp_packet.rst:
-            pass
+        # if tcp_packet.rst:
+        #     pass
 
         # third check security and precedence
 
         # fourth check the SYN bit
-        if tcp_packet.syn:
-            Tcp.tcp_send_challenge_ack(sock, ipv4_packet, tcp_packet)
-            return
+        # if tcp_packet.syn:
+        #     Tcp.tcp_send_challenge_ack(sock, ipv4_packet, tcp_packet)
+        #     return
 
         # fifth check the ACK field
-        if not tcp_packet.ack:
-            return
+        # if not tcp_packet.ack:
+        #     return
 
         # ACK bit is ON
-        if sock.state == "TCP_SYN_RECEIVED":
+        if sock.state == "TCP_SYN_RECV":
             # -> TCP_ESTABLISHED
-            pass
+            tcp_packet.LOG("info", "TCP_SYN_RECV -> TCP_ESTABLISHED")
+            sock.state = "TCP_ESTABLISHED"
+            from core.sock import SockManager
+            local_info = sock.local_ip_addr, sock.local_port
+            base_sock = SockManager.lookup_unidirectional_sock(Tcp.PROT_TYPE, local_info)
+            base_sock.enqueue_acceptor(sock)
+            return
 
 
         # UNKNOWN
-        if sock.state in ["TCP_ESTABLISHED", "TCP_FIN_WAIT_1", "TCP_FIN_WAIT_2", "TCP_CLOSE_WAIT"
-                          "TCO_CLOSING", "TCP_LAST_ACK"]:
-            pass
+        # if sock.state in ["TCP_ESTABLISHED", "TCP_FIN_WAIT_1", "TCP_FIN_WAIT_2", "TCP_CLOSE_WAIT"
+        #                   "TCO_CLOSING", "TCP_LAST_ACK"]:
+        #     pass
 
-        if sock.tx_queue_size() == 0:
-            if sock.state == "TCP_FIN_WAIT_1":
-                # -> TCP_FIN_WAIT_2
-                pass
-            if sock.state == "TCP_FIN_WAIT_2":
-                pass
-            if sock.state == "TCP_CLOSING":
-                # -> TCP_TIME_WAIT
-                pass
-            if sock.state == "TCP_LAST_ACK":
-                # -> CLOSED
-                pass
-            if sock.state == "TCP_TIME_WAIT":
-                pass
+        # if sock.tx_queue_size() == 0:
+        #     if sock.state == "TCP_FIN_WAIT_1":
+        #         # -> TCP_FIN_WAIT_2
+        #         pass
+        #     if sock.state == "TCP_FIN_WAIT_2":
+        #         pass
+        #     if sock.state == "TCP_CLOSING":
+        #         # -> TCP_TIME_WAIT
+        #         pass
+        #     if sock.state == "TCP_LAST_ACK":
+        #         # -> CLOSED
+        #         pass
+        #     if sock.state == "TCP_TIME_WAIT":
+        #         pass
 
         # sixth, check the URG bit
-        if tcp_packet.urg:
-            pass
+        # if tcp_packet.urg:
+        #     pass
 
         # seven, process the segment txt
         if sock.state in ["TCP_ESTABLISHED", "TCP_FIN_WAIT_1", "TCP_FIN_WAIT_2"]:
-            pass
+            sock.enqueue_data(tcp_packet.payload)
+            Tcp.tcp_send_ack(sock, ipv4_packet, tcp_packet)
 
         # eighth, check the FIN bit
-        if sock.state in ["TCP_CLOSE_WAIT", "TCP_CLOSING", "TCP_LAST_ACK", "TCP_TIME_WAIT"]:
-            pass
+        # if sock.state in ["TCP_CLOSE_WAIT", "TCP_CLOSING", "TCP_LAST_ACK", "TCP_TIME_WAIT"]:
+        #     pass
 
         # congestion control and delacks
 
@@ -199,15 +220,16 @@ class Tcp(Protocol):
 
         reply_tcp_pack.src_port = tcp_packet.dst_port
         reply_tcp_pack.dst_port = tcp_packet.src_port
+
         reply_tcp_pack.seq_no = sock.seq
         sock.seq += 1
         reply_tcp_pack.ack_no = tcp_packet.seq_no + 1
+
         reply_tcp_pack.window_size = tcp_packet.window_size
         reply_tcp_pack.urgent_pointer = 0x0000
-        reply_tcp_pack.option = 0x00000000
+        reply_tcp_pack.option = tcp_packet.option
         reply_tcp_pack.checksum = 0x0000
-        reply_tcp_pack.length = len(reply_tcp_pack.buffer)
-        reply_tcp_pack.payload = tcp_packet.payload
+        reply_tcp_pack.length = len(reply_tcp_pack.header) + len(reply_tcp_pack.option)
         reply_tcp_pack.LOG("info", "OUT")
 
         fake_head = FakeHead()
@@ -228,18 +250,23 @@ class Tcp(Protocol):
     @classmethod
     def tcp_send_ack(cls, sock, ipv4_packet, tcp_packet):
         reply_tcp_pack = TcpPacket()
+
         reply_tcp_pack.ack = 1
+
         reply_tcp_pack.src_port = tcp_packet.dst_port
         reply_tcp_pack.dst_port = tcp_packet.src_port
-        reply_tcp_pack.seq_no = sock.seq
-        sock.seq += 1
-        reply_tcp_pack.ack_no = tcp_packet.seq_no + 1
+
+        reply_tcp_pack.seq_no = tcp_packet.ack_no
+        reply_tcp_pack.ack_no = tcp_packet.seq_no + len(tcp_packet.payload)
+
         reply_tcp_pack.window_size = tcp_packet.window_size
+
         reply_tcp_pack.urgent_pointer = 0x0000
-        reply_tcp_pack.option = 0x00000000
+        reply_tcp_pack.option = tcp_packet.option
+
         reply_tcp_pack.checksum = 0x0000
-        reply_tcp_pack.length = len(reply_tcp_pack.buffer)
-        reply_tcp_pack.payload = tcp_packet.payload
+        reply_tcp_pack.length = len(reply_tcp_pack.header) + len(reply_tcp_pack.option)
+
         reply_tcp_pack.LOG("info", "OUT")
 
         fake_head = FakeHead()
@@ -249,6 +276,7 @@ class Tcp(Protocol):
         fake_head.length = len(reply_tcp_pack.buffer)
 
         reply_tcp_pack.checksum = util.checksum(fake_head.buffer + reply_tcp_pack.buffer)
+
         from header.ipv4 import Ipv4, Ipv4Packet
         reply_ipv4_packet = Ipv4Packet()
         reply_ipv4_packet.src_ip_addr = ipv4_packet.dst_ip_addr
@@ -268,9 +296,9 @@ class Tcp(Protocol):
     @classmethod
     def tcp_listen(cls, sock, ipv4_packet, tcp_packet):
         if tcp_packet.syn == 1:
-            tcp_packet.LOG("info", "LISTEN TAKE")
-            sock.state = "TCP_SYN_RCVD"
+            tcp_packet.LOG("info", "TCP_LISTEN -> TCP_SYN_RECV")
             Tcp.tcp_send_syn_ack(sock, ipv4_packet, tcp_packet)
+            sock.state = "TCP_SYN_RECV"
         return
     @classmethod
     def tcp_synsent(cls, sock, ipv4_packet, tcp_packet):
