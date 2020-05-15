@@ -38,6 +38,10 @@ async def tcp_test():
     while True:
         sock = await socket.accept()
         print(util.ip_i2s(sock.remote_ip_addr), sock.remote_port)
+        sock.write("12345".encode())
+        while True:
+            buf = await sock.read()
+            print(buf)
 
 loop = asyncio.get_event_loop()
 # loop.create_task(udp_test())

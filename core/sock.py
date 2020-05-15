@@ -3,6 +3,8 @@ from header.udp import Udp
 from header.tcp import Tcp
 import logging
 from core import util
+
+
 class Sock:
     def __init__(self, prot_type, remote_info, local_info, queue_mx_size=500):
         self._prot_type = prot_type
@@ -19,7 +21,8 @@ class Sock:
         self._tx_queue = asyncio.Queue(self._queue_mx_size)
         self._accept_queue = asyncio.Queue(self._queue_mx_size)
         self._seq = 0
-
+        self._ack = 0
+        self._option = None
 
     def LOG(self, info, status):
         log = getattr(logging, info)
@@ -30,6 +33,15 @@ class Sock:
             remote_port = str(self.remote_port)
         local_ip_addr, local_port = util.ip_i2s(self.local_ip_addr), str(self.local_port)
         log("[SOCK %s %s] (%s:%s -> %s:%s)", status, self.state, remote_ip_addr, remote_port, local_ip_addr, local_port)
+
+    @property
+    def option(self):
+        return self._option
+
+    @option.setter
+    def option(self, value):
+        self._option = value
+
     @property
     def seq(self):
         return self._seq
@@ -37,6 +49,14 @@ class Sock:
     @seq.setter
     def seq(self, value):
         self._seq = value
+
+    @property
+    def ack(self):
+        return self._ack
+
+    @ack.setter
+    def ack(self, value):
+        self._ack = value
 
     @property
     def tx_queue_size(self):
@@ -155,3 +175,13 @@ class SockManager:
                             Udp.write(buf, (sock.remote_ip_addr, sock.remote_port), local_info)
                         if prot_type == Tcp.PROT_TYPE:
                             Tcp.write(buf, (sock.remote_ip_addr, sock.remote_port), local_info)
+
+            for prot_type, socks in SockManager._bidirectional_sock_map.items():
+                for local_info, socks in socks.items():
+                    for sock in socks:
+                        buf = sock.dequeue_data()
+                        if buf:
+                            if prot_type == Udp.PROT_TYPE:
+                                Udp.write(buf, (sock.remote_ip_addr, sock.remote_port), local_info)
+                            if prot_type == Tcp.PROT_TYPE:
+                                Tcp.write(buf, (sock.remote_ip_addr, sock.remote_port), local_info)

@@ -28,8 +28,13 @@ class TcpPacket(Structure):
     def __init__(self, bytedata=None):
         super().__init__(bytedata)
         option_length = self.length - len(self.header)
-        self.option = self.payload[:option_length]
-        self.payload = self.payload[option_length:]
+        if option_length >= 0:
+            self.option = self.payload[:option_length]
+            self.payload = self.payload[option_length:]
+        else:
+            self.option = bytearray(0)
+            self.payload = bytearray(0)
+
 
     @property
     def buffer(self):
@@ -129,6 +134,14 @@ class Tcp(Protocol):
 
     @classmethod
     def tcp_state_transform(cls, sock, ipv4_packet, tcp_packet):
+        sock.seq = max(sock.seq, tcp_packet.ack_no)
+
+        if tcp_packet.syn == 1:
+            sock.ack = max(sock.ack, tcp_packet.seq_no + max(1, len(tcp_packet.payload)))
+
+        if tcp_packet.psh == 1 and tcp_packet.ack == 1:
+            sock.ack = max(sock.ack, tcp_packet.seq_no + max(1, len(tcp_packet.payload)))
+
         if sock.state == "TCP_CLOSE":
             Tcp.tcp_close(sock, ipv4_packet, tcp_packet)
             return
@@ -198,8 +211,10 @@ class Tcp(Protocol):
 
         # seven, process the segment txt
         if sock.state in ["TCP_ESTABLISHED", "TCP_FIN_WAIT_1", "TCP_FIN_WAIT_2"]:
-            sock.enqueue_data(tcp_packet.payload)
-            Tcp.tcp_send_ack(sock, ipv4_packet, tcp_packet)
+            if tcp_packet.psh == 1:
+                sock.enqueue_data(tcp_packet.payload)
+                Tcp.tcp_send_ack(sock, ipv4_packet, tcp_packet)
+
 
         # eighth, check the FIN bit
         # if sock.state in ["TCP_CLOSE_WAIT", "TCP_CLOSING", "TCP_LAST_ACK", "TCP_TIME_WAIT"]:
@@ -222,16 +237,18 @@ class Tcp(Protocol):
         reply_tcp_pack.dst_port = tcp_packet.src_port
 
         reply_tcp_pack.seq_no = sock.seq
-        sock.seq += 1
-        reply_tcp_pack.ack_no = tcp_packet.seq_no + 1
+        reply_tcp_pack.ack_no = sock.ack
 
         reply_tcp_pack.window_size = tcp_packet.window_size
         reply_tcp_pack.urgent_pointer = 0x0000
-        reply_tcp_pack.option = tcp_packet.option
+
+        # reply_tcp_pack.option = tcp_packet.option
+
+        sock.option = tcp_packet.option
+
         reply_tcp_pack.checksum = 0x0000
         reply_tcp_pack.length = len(reply_tcp_pack.header) + len(reply_tcp_pack.option)
         reply_tcp_pack.LOG("info", "OUT")
-
         fake_head = FakeHead()
         fake_head.src_ip_addr = ipv4_packet.dst_ip_addr
         fake_head.dst_ip_addr = ipv4_packet.src_ip_addr
@@ -256,8 +273,8 @@ class Tcp(Protocol):
         reply_tcp_pack.src_port = tcp_packet.dst_port
         reply_tcp_pack.dst_port = tcp_packet.src_port
 
-        reply_tcp_pack.seq_no = tcp_packet.ack_no
-        reply_tcp_pack.ack_no = tcp_packet.seq_no + len(tcp_packet.payload)
+        reply_tcp_pack.seq_no = sock.seq
+        reply_tcp_pack.ack_no = sock.ack
 
         reply_tcp_pack.window_size = tcp_packet.window_size
 
@@ -300,10 +317,62 @@ class Tcp(Protocol):
             Tcp.tcp_send_syn_ack(sock, ipv4_packet, tcp_packet)
             sock.state = "TCP_SYN_RECV"
         return
+
     @classmethod
     def tcp_synsent(cls, sock, ipv4_packet, tcp_packet):
         pass
 
     @classmethod
-    def write(cls, packet, src_info, dst_info):
-        pass
+    def tcp_send_data(cls, packet, remote_info, local_info):
+        from core.sock import SockManager
+        sock = SockManager.lookup_bidirectional_sock(Tcp.PROT_TYPE, local_info, remote_info)
+        if sock is None:
+            return
+        src_ip_addr, src_port = local_info
+        dst_ip_addr, dst_port = remote_info
+
+        tcp_packet = TcpPacket()
+
+        tcp_packet.src_port = src_port
+        tcp_packet.dst_port = dst_port
+
+        tcp_packet.ack_no = sock.ack
+        tcp_packet.seq_no = sock.seq
+
+        tcp_packet.psh = 1
+        tcp_packet.ack = 1
+
+        tcp_packet.window_size = 0x18eb
+
+        tcp_packet.payload = packet
+
+        tcp_packet.urgent_pointer = 0x0000
+
+        tcp_packet.checksum = 0x0000
+
+        # tcp_packet.option = sock.option
+
+        tcp_packet.length = len(tcp_packet.header) + len(tcp_packet.option)
+
+        tcp_packet.LOG("info", "OUT")
+
+        fake_head = FakeHead()
+        fake_head.src_ip_addr = src_ip_addr
+        fake_head.dst_ip_addr = dst_ip_addr
+        fake_head.prot_type = Tcp.PROT_TYPE
+        fake_head.length = len(tcp_packet.buffer)
+
+        tcp_packet.checksum = util.checksum(fake_head.buffer + tcp_packet.buffer)
+
+        from header.ipv4 import Ipv4, Ipv4Packet
+        ipv4_packet = Ipv4Packet()
+        ipv4_packet.src_ip_addr = src_ip_addr
+        ipv4_packet.dst_ip_addr = dst_ip_addr
+        ipv4_packet.payload = tcp_packet.buffer
+        ipv4_packet.LOG("info", "OUT")
+        Ipv4.write(ipv4_packet, Tcp.PROT_TYPE)
+
+    @classmethod
+    def write(cls, packet, remote_info, local_info):
+        Tcp.tcp_send_data(packet, remote_info, local_info)
+
