@@ -32,7 +32,8 @@ class Sock:
         if self.remote_port is not None:
             remote_port = str(self.remote_port)
         local_ip_addr, local_port = util.ip_i2s(self.local_ip_addr), str(self.local_port)
-        log("[SOCK %s %s] (%s:%s -> %s:%s)", status, self.state, remote_ip_addr, remote_port, local_ip_addr, local_port)
+        log("[SOCK %s %s] (%s:%s -> %s:%s) %s %s", status, self.state, remote_ip_addr, remote_port, local_ip_addr,
+            local_port, self._seq, self._ack)
 
     @property
     def option(self):
@@ -94,10 +95,18 @@ class Sock:
         self._state = "TCP_LISTEN"
         self._enable = True
 
-    def connect(self, remote_info):
-        remote_ip_addr, remote_port = remote_info
-        self._remote_ip_addr = remote_ip_addr
-        self._remote_port = remote_port
+    async def connect(self):
+        remote_info = self.remote_ip_addr, self.remote_port
+        local_info = self.local_ip_addr, self.local_port
+
+        # TODO generate seq
+        # TODO add option
+        Tcp.tcp_send_syn(bytearray(0), remote_info, local_info)
+        self._state = "TCP_SYN_SENT"
+
+        while self._state != "TCP_ESTABLISHED":
+            await asyncio.sleep(0.5)
+        self._enable = True
 
     async def accept(self):
         sock = await self._accept_queue.get()
@@ -122,6 +131,14 @@ class Sock:
 
     def enqueue_acceptor(self, sock):
         self._accept_queue.put_nowait(sock)
+
+    def close(self):
+        remote_info = self.remote_ip_addr, self.remote_port
+        local_info = self.local_ip_addr, self.local_port
+        Tcp.tcp_send_fin(bytearray(0), remote_info, local_info)
+        self.state = "TCP_FIN_WAIT_1"
+        self.LOG("info", "closing now")
+
 
 
 class SockManager:
