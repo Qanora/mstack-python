@@ -2,6 +2,7 @@ from header import Protocol
 from header import Structure, TypeLen
 import logging
 from core import util
+from header.tcpoption import TcpOptionManager
 
 
 class FakeHead(Structure):
@@ -155,8 +156,9 @@ class Tcp(Protocol):
             # -> TCP_SYN_RECV
             tcp_packet.LOG("info", "TCP_LISTEN -> TCP_SYN_RECV")
             sock.LOG("info", "TCP_LISTEN -> TCP_SYN_RECV")
-            sock.option = tcp_packet.option
-            Tcp.tcp_send_packet(sock, remote_info, local_info, ['syn', 'ack'], option=sock.option)
+            Tcp.save_merge_options(sock, tcp_packet.option)
+
+            Tcp.tcp_send_packet(sock, remote_info, local_info, ['syn', 'ack'], option=sock.option_bin)
             # sock.seq += 1
             sock.state = "TCP_SYN_RECV"
             return
@@ -267,3 +269,9 @@ class Tcp(Protocol):
         if sock is None:
             return
         Tcp.tcp_send_packet(sock, remote_info, local_info, ['syn'])
+
+    @classmethod
+    def save_merge_options(cls, sock, in_options):
+        sock.option = TcpOptionManager.merge_options(in_options)
+        sock.option_bin = TcpOptionManager.encode_options(sock.option)
+        # print(len(sock.option_bin))

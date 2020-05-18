@@ -22,6 +22,7 @@ class Sock:
         self._accept_queue = asyncio.Queue(self._queue_mx_size)
         self._seq = 0
         self._ack = 0
+        self._option_bin = None
         self._option = None
 
     def LOG(self, info, status):
@@ -32,8 +33,11 @@ class Sock:
         if self.remote_port is not None:
             remote_port = str(self.remote_port)
         local_ip_addr, local_port = util.ip_i2s(self.local_ip_addr), str(self.local_port)
-        log("[SOCK %s %s] (%s:%s -> %s:%s) %s %s", status, self.state, remote_ip_addr, remote_port, local_ip_addr,
-            local_port, self._seq, self._ack)
+        options_str = "NO OPTION"
+        if self.option is not None:
+            options_str = " ".join([v.name for k, v in self.option.items()])
+        log("[SOCK %s %s] (%s:%s -> %s:%s) %s %s %s", status, self.state, remote_ip_addr, remote_port, local_ip_addr,
+            local_port, self._seq, self._ack, options_str)
 
     @property
     def option(self):
@@ -42,6 +46,14 @@ class Sock:
     @option.setter
     def option(self, value):
         self._option = value
+
+    @property
+    def option_bin(self):
+        return self._option_bin
+
+    @option_bin.setter
+    def option_bin(self, value):
+        self._option_bin = value
 
     @property
     def seq(self):

@@ -72,6 +72,8 @@ class Structure(metaclass=StructureMeta):
 
 
 class TypeLen:
+    L16 = "QQ"
+    L8 = "Q"
     L6 = "HI"
     L4 = "I"
     L2 = "H"
