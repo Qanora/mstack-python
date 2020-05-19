@@ -22,6 +22,20 @@ class Sock:
         self._accept_queue = asyncio.Queue(self._queue_mx_size)
         self._seq = 0
         self._ack = 0
+
+        self._retransmit = None
+
+        self._srtt = 0
+        self._rttvar = 0
+        self._rto = 0
+
+        self._snd_una = 0
+        self._snd_nxt = 0
+        self._snd_wnd = 0
+
+        self._rcv_nxt = 0
+        self._rcv_wnd = 0
+
         self._option_bin = None
         self._option = None
 

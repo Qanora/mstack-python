@@ -3,7 +3,7 @@ from header import Structure, TypeLen
 import logging
 from core import util
 from header.tcpoption import TcpOptionManager
-
+from core import timer
 
 class FakeHead(Structure):
     _fields_ = [
@@ -140,14 +140,20 @@ class Tcp(Protocol):
             sock.seq = tcp_packet.seq_no
             sock.ack = tcp_packet.seq_no
 
+            sock._snd_una = tcp_packet.seq_no
+            sock._snd_nxt = tcp_packet.seq_no
+            sock._rcv_nxt = tcp_packet.seq_no
+
         # handle ack
         if tcp_packet.ack == 1:
+            sock._snd_una = max(sock._snd_una, tcp_packet.ack_no)
             sock.seq = max(sock.seq, tcp_packet.ack_no)
 
         if tcp_packet.syn == 1 or tcp_packet.psh == 1:
             # if tcp_packet.ack_no != sock.seq or tcp_packet.seq_no != sock.ack:
             #     sock.LOG("error", "ACK SEQ NO ERROR")
             sock.ack += max(1, len(tcp_packet.payload))
+            sock._rcv_nxt += max(1, len(tcp_packet.payload))
 
         local_info = ipv4_packet.dst_ip_addr, tcp_packet.dst_port
         remote_info = ipv4_packet.src_ip_addr, tcp_packet.src_port
@@ -159,7 +165,6 @@ class Tcp(Protocol):
             Tcp.save_merge_options(sock, tcp_packet.option)
 
             Tcp.tcp_send_packet(sock, remote_info, local_info, ['syn', 'ack'], option=sock.option_bin)
-            # sock.seq += 1
             sock.state = "TCP_SYN_RECV"
             return
 
@@ -211,8 +216,8 @@ class Tcp(Protocol):
         reply_tcp_pack.src_port = src_port
         reply_tcp_pack.dst_port = dst_port
 
-        reply_tcp_pack.seq_no = sock.seq
-        reply_tcp_pack.ack_no = sock.ack
+        reply_tcp_pack.seq_no = sock._snd_nxt
+        reply_tcp_pack.ack_no = sock._rcv_nxt
 
         reply_tcp_pack.window_size = 0x18eb
         reply_tcp_pack.urgent_pointer = 0x0000
@@ -245,7 +250,6 @@ class Tcp(Protocol):
 
         Ipv4.write(reply_ipv4_packet, Tcp.PROT_TYPE)
 
-
     @classmethod
     def write(cls, packet, remote_info, local_info):
         from core.sock import SockManager
@@ -253,6 +257,7 @@ class Tcp(Protocol):
         if sock is None:
             return
         Tcp.tcp_send_packet(sock, remote_info, local_info, ['psh', 'ack'], out_packet=packet)
+        sock._snd_nxt += len(packet)
 
     @classmethod
     def tcp_send_fin(cls, packet, remote_info, local_info):
@@ -261,6 +266,7 @@ class Tcp(Protocol):
         if sock is None:
             return
         Tcp.tcp_send_packet(sock, remote_info, local_info, ['fin', 'ack'])
+        sock._snd_nxt += 1
 
     @classmethod
     def tcp_send_syn(cls, packet, remote_info, local_info):
@@ -269,9 +275,46 @@ class Tcp(Protocol):
         if sock is None:
             return
         Tcp.tcp_send_packet(sock, remote_info, local_info, ['syn'])
+        sock._snd_nxt += 1
 
     @classmethod
     def save_merge_options(cls, sock, in_options):
         sock.option = TcpOptionManager.merge_options(in_options)
         sock.option_bin = TcpOptionManager.encode_options(sock.option)
-        # print(len(sock.option_bin))
+
+    @classmethod
+    def tcp_rtt(cls, sock):
+        r = timer.get_time() - (sock._retransmit.expire - sock._rto)
+        if r < 0:
+            return
+        if sock._srtt == 0:
+            sock._srtt = r
+            sock._rttvar = r // 2
+
+        else:
+            beta = 0.25
+            alpha = 0.125
+            sock._rttvar = (1 - beta) * sock._rttvar * abs(sock._srtt - r)
+            sock._srtt = (1 - alpha) * sock._srtt + alpha * r
+
+        k = 4 * sock._srtt
+
+        if k < 200:
+            k = 200
+
+        sock._rto = sock._srtt + k
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
